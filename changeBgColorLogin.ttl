@@ -1,0 +1,87 @@
+;=====================================================================
+; ウィンドウタイトル (固定にしたくない場合は WIN_TITLE を定義しない)
+WIN_TITLE = 'ウィンドウタイトル'
+; 接続情報
+HOSTADDR = '192.168.1.1'
+USERNAME = 'root'
+PASSWORD = 'rootpw'
+; デフォルト INI パス
+getttdir DEFAULT_INI
+strconcat DEFAULT_INI '\TERATERM.INI'
+; 始め3セクション: 文字の RGB, 次の3セクション: 背景の RGB
+VTCOLOR='255,255,255,55,0,0'
+;=====================================================================
+
+call changeBgColorLogin
+end
+
+:changeBgColorLogin
+  tempfile =  'my_teraterm_tmp_file.ini'
+
+  ;--- デフォルト設定を複製、自分用設定で上書きする -------------------
+  getdir temp_ini
+  strconcat temp_ini tempfile
+
+  fileopen fdef DEFAULT_INI 0 1
+  if fdef == -1 then
+     messagebox "can not open default ini" "open error"
+     exit
+  endif
+  ;filedelete temp_ini
+  fileopen ftmp temp_ini 0
+  if ftmp == -1 then
+     messagebox "can not open temp file" "open error"
+     exit
+  endif
+
+  while 1
+      hit=0
+      filereadln fdef line
+      if result=1  break
+      strsplit line '=' 9
+    
+      ; 画面の背景色を変える。ほんとは Bold/Blink/URL も変えると良い。
+      strcompare groupmatchstr1 "VTColor"
+      if result=0 then
+         string = 'VTColor='
+         strconcat string VTCOLOR
+         filewriteln ftmp string
+         hit = 1
+      endif
+      
+      strcompare groupmatchstr1 "AcceptTitleChangeRequest"
+      matchResult = result
+      ifdefined WIN_TITLE
+      if matchResult == 0 and result != 0 then
+         string = 'AcceptTitleChangeRequest=off'
+         filewriteln ftmp string
+         hit = 1
+      endif
+      
+      if hit=0 then
+         filewriteln ftmp line
+      endif
+  endwhile
+
+  fileclose fdef
+  fileclose ftmp
+  
+  ; コマンドオプション組立て
+  COMMAND = HOSTADDR
+  strconcat COMMAND ':22 /ssh /2 /auth=password /user='
+  strconcat COMMAND USERNAME
+  strconcat COMMAND ' /passwd='
+  strconcat COMMAND PASSWORD
+  strconcat COMMAND ' /F='
+  strconcat COMMAND temp_ini
+
+  ; 接続
+  connect COMMAND
+  ; ウィンドウタイトルセット
+  ifdefined WIN_TITLE
+  if result != 0 then
+    settitle WIN_TITLE
+  endif
+  ; 一時 INI を削除
+  filedelete temp_ini
+return
